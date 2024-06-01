@@ -2,64 +2,112 @@ import {
   Box,
   Button,
   Checkbox,
+  Divider,
   FormControlLabel,
   InputBase,
   Slider,
+  Stack,
   Typography,
 } from "@mui/material";
 import { filterStyles } from "../CSS/filters";
 import React from "react";
+import { useAppDispatch, useAppSelector } from "../Redux/hooks";
+import {
+  setBySeller,
+  setCurrAmen,
+  setCurrCat,
+  setCurrRange,
+} from "../Redux/Slices/appslice";
 
-const categories: { [key: string]: boolean } = {
-  Appartments: true,
-  Houses: false,
-  Vila: false,
-  Rooms: false,
-};
-
-const amenities: { [key: string]: boolean } = {
-  Hospital: true,
-  School: false,
-  "Police Station": false,
-  Park: false,
-};
+import { int, lstConcat, min } from "../helpers";
+import { useSearchParams } from "react-router-dom";
 
 const valueText = (val: number) => `$ ${val}`;
 
 const Filters = () => {
-  const [category, setcategory] = React.useState(categories);
-  const [value, setValue] = React.useState<number[]>([20, 37]);
+  const dispatch = useAppDispatch();
+  const [queryParams, setQueryParams] = useSearchParams();
+  const { filters, user } = useAppSelector((store) => store.app);
 
-  const handleChange = (event: Event, newValue: number | number[]) => {
-    setValue(newValue as number[]);
+  const { categories, priceRange, amenities } = filters;
+
+  // URL Query parameters update handlers
+  const updateQueryParams = (key: string, val: string) => {
+    if (val) {
+      queryParams.set(key, val);
+      setQueryParams(queryParams);
+    } else {
+      removeQueryParams(key);
+    }
   };
-
-  const updateCategory = (
-    key: string,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setcategory((prev) => {
-      const newState = { ...prev };
-      newState[key] = e.target.checked;
-      return newState;
+  const removeQueryParams = (key: string) => {
+    queryParams.delete(key);
+    setQueryParams(queryParams);
+  };
+  const applyFiltersHandler = () => {
+    const newAmens: Array<number> = [];
+    amenities.forEach((item) => {
+      if (item.checked) newAmens.push(item.id);
     });
+
+    const newCats: Array<number> = [];
+    categories.forEach((item) => {
+      if (item.checked) newCats.push(item.id);
+    });
+
+    if (filters.bySeller) {
+      updateQueryParams("byseller", `${user.id}`);
+    } else {
+      removeQueryParams("byseller");
+    }
+    updateQueryParams("price", lstConcat(priceRange));
+    updateQueryParams("amenities", lstConcat(newAmens));
+    updateQueryParams("categories", lstConcat(newCats));
+  };
+  // Global State update handlers
+  const updateCategory = (index: number) => {
+    dispatch(setCurrCat({ index }));
+  };
+  const updateAmenity = (index: number) => {
+    dispatch(setCurrAmen({ index }));
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateRange = (e: any) => {
+    dispatch(setCurrRange(int(e.target.value)));
+  };
+  const applySellerFilter = () => {
+    dispatch(setBySeller(!filters.bySeller));
+  };
+  const updateRangeWithTextBox = (
+    minF: boolean,
+    e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>
+  ) => {
+    const newState = [...priceRange];
+    if (minF) {
+      newState[0] = min(e.target.value, 10_000);
+    } else {
+      newState[1] = min(e.target.value, 10_000);
+    }
+    dispatch(setCurrRange(newState));
   };
 
+  // Component Definition
   return (
-    <Box sx={filterStyles.container}>
+    <Stack sx={filterStyles.container} divider={<Divider />}>
       <Box sx={filterStyles.catBox}>
         <Typography sx={filterStyles.filterSubTitle}>Category</Typography>
-        {Object.keys(category).map((key) => (
+        {categories.map((category, index) => (
           <FormControlLabel
-            label={key}
-            key={key}
+            label={category.name}
+            key={category.id}
             control={
               <Checkbox
+                name="category"
                 disableTouchRipple
                 size="small"
                 sx={filterStyles.checkBox}
-                checked={category[key]}
-                onChange={(e) => updateCategory(key, e)}
+                checked={category.checked}
+                onChange={() => updateCategory(index)}
               />
             }
           />
@@ -71,55 +119,78 @@ const Filters = () => {
         </Typography>
         <Box sx={filterStyles.indentBox}>
           <Slider
-            getAriaLabel={() => "Temperature range"}
-            value={value}
-            onChange={handleChange}
+            getAriaLabel={() => "Price range"}
+            value={priceRange}
+            onChange={updateRange}
             valueLabelDisplay="auto"
             getAriaValueText={valueText}
             sx={filterStyles.slider}
+            min={1}
+            max={10_000}
+            name="price"
           />
         </Box>
         <Box sx={filterStyles.range}>
-          <InputBase placeholder="Minimum" sx={filterStyles.rangeField} />
-          <InputBase placeholder="Maximum" sx={filterStyles.rangeField} />
-        </Box>
-      </Box>
-      <Box sx={filterStyles.catBox}>
-        <Typography sx={filterStyles.filterSubTitle}>Size (sq)</Typography>
-        <Box sx={filterStyles.indentBox}>
-          <Slider
-            getAriaLabel={() => "Temperature range"}
-            value={value}
-            onChange={handleChange}
-            valueLabelDisplay="auto"
-            getAriaValueText={valueText}
-            sx={filterStyles.slider}
+          <InputBase
+            placeholder="Minimum"
+            value={priceRange[0]}
+            onChange={(e) => updateRangeWithTextBox(true, e)}
+            sx={filterStyles.rangeField}
+          />
+          <InputBase
+            placeholder="Maximum"
+            value={priceRange[1]}
+            onChange={(e) => updateRangeWithTextBox(false, e)}
+            sx={filterStyles.rangeField}
           />
         </Box>
       </Box>
       <Box sx={filterStyles.catBox}>
         <Typography sx={filterStyles.filterSubTitle}>Amenities</Typography>
-        {Object.keys(amenities).map((key) => (
+        {amenities.map((amenity, index) => (
           <FormControlLabel
-            label={key}
-            key={key}
+            label={amenity.name}
+            key={amenity.id}
             control={
               <Checkbox
                 disableTouchRipple
                 size="small"
                 sx={filterStyles.checkBox}
-                checked={category[key]}
-                onChange={(e) => updateCategory(key, e)}
+                checked={amenity.checked}
+                onChange={() => updateAmenity(index)}
               />
             }
           />
         ))}
       </Box>
-
-      <Button fullWidth sx={filterStyles.applyButton}>
+      {user.role === "seller" && (
+        <Box sx={filterStyles.catBox}>
+          <Typography sx={filterStyles.filterSubTitle}>
+            Seller Filter
+          </Typography>
+          <FormControlLabel
+            label={"Include only my properties"}
+            key={"self-prop-list"}
+            control={
+              <Checkbox
+                disableTouchRipple
+                size="small"
+                sx={filterStyles.checkBox}
+                checked={filters.bySeller}
+                onChange={applySellerFilter}
+              />
+            }
+          />
+        </Box>
+      )}
+      <Button
+        fullWidth
+        onClick={applyFiltersHandler}
+        sx={filterStyles.applyButton}
+      >
         Apply Filters
       </Button>
-    </Box>
+    </Stack>
   );
 };
 

@@ -19,52 +19,90 @@ import { headerStyles, searchStyles } from "../CSS/header";
 import { main } from "../CSS/colors";
 import React from "react";
 import { useAppDispatch, useAppSelector } from "../Redux/hooks";
-import { logoutUser, setEnableLogin } from "../Redux/Slices/appslice";
+import {
+  logoutUser,
+  setCurrLoc,
+  setEnableLogin,
+  setEnablePropAdd,
+} from "../Redux/Slices/appslice";
 import { gridStyles } from "../CSS/content";
-
-const values = ["Sydeny1", "Sydeny2", "Sydeny3", "Sydeny5"];
+import { APIRequest } from "../API/requests";
+import { useSearchParams } from "react-router-dom";
+import { capFirst, str } from "../helpers";
+import { toast } from "react-toastify";
 
 const Header = () => {
-  const { user } = useAppSelector((store) => store.app);
-  const dispatch = useAppDispatch();
-  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [loc, setloc] = React.useState("");
-  const [sText, setsText] = React.useState("");
+  const { user, filters } = useAppSelector((store) => store.app);
+  const { data, selected } = filters.location;
+
+  const dispatch = useAppDispatch();
+
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [searchTxt, setSearchTxt] = React.useState("");
 
   const open = Boolean(anchorEl);
-  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) =>
     setAnchorEl(event.currentTarget);
-  };
-  const handleClose = () => {
-    setAnchorEl(null);
+  const handleClose = () => setAnchorEl(null);
+
+  const changeLocation = (child: unknown) => {
+    const index = (child as React.ReactElement).key?.split("-")[1];
+    if (index) {
+      const item = data[parseInt(index)];
+      dispatch(setCurrLoc(item));
+      searchParams.set("location", str(item.id));
+      setSearchParams(searchParams);
+    }
   };
 
-  const menuActionHandler = (action: string) => {
-    if (action === "Signin") {
+  const addSearchTxtToQueryParams = () => {
+    if (searchTxt) {
+      searchParams.set("search", searchTxt);
+    } else {
+      searchParams.delete("search");
+    }
+    setSearchParams(searchParams);
+  };
+
+  const menuActionHandler = async (action: string) => {
+    if (action === "Signin / Signup") {
       dispatch(setEnableLogin({ enable: true }));
     } else if (action === "Logout") {
+      const req = new APIRequest();
+      await req.logout();
       dispatch(logoutUser());
+      toast.success("Logged out successfully!");
     } else {
-      // show property create dialog
+      dispatch(setEnablePropAdd({ enable: true, context: null }));
     }
     handleClose();
   };
 
   const accountMenu = React.useMemo(() => {
     const menu = [];
-    if (user.isActive) {
+    if (user.is_active) {
       menu.push("Logout");
       if (user.role === "seller") {
         menu.push("Add property");
       }
     } else {
-      menu.push("Signin");
+      menu.push("Signin / Signup");
     }
     return menu;
   }, [user]);
 
-  console.log({ loc });
+  React.useEffect(() => {
+    const location = searchParams.get("location");
+    const sText = searchParams.get("search");
+    if (location) {
+      dispatch(setCurrLoc(data.find((item) => item.id === parseInt(location))));
+    }
+    if (sText) {
+      setSearchTxt(sText);
+    }
+  }, [searchParams, dispatch, data]);
 
   return (
     <Box sx={headerStyles.container}>
@@ -108,46 +146,47 @@ const Header = () => {
           size="small"
           sx={searchStyles.select}
           displayEmpty
-          value={loc}
-          onChange={(e) => setloc(e.target.value)}
+          value={selected?.name || ""}
+          onChange={(_, child) => changeLocation(child)}
           startAdornment={<PlaceIcon sx={searchStyles.icon} />}
-          renderValue={(val: string) => loc || val || "Location"}
+          renderValue={(val: string) =>
+            selected?.name || val || "All Locations"
+          }
           MenuProps={{
             sx: gridStyles.menuSelect,
           }}
         >
-          {values.map((item, index) => (
+          {data.map((item, index) => (
             <MenuItem
               sx={searchStyles.menuItem}
               key={`select-${index}`}
-              value={item}
+              value={item.name}
             >
-              {item}
+              {item.name}
             </MenuItem>
           ))}
         </Select>
         <>
           <InputBase
             sx={searchStyles.textBox}
-            value={sText}
-            onChange={(e) => setsText(e.target.value)}
+            type="search"
+            value={searchTxt}
+            onChange={(e) => setSearchTxt(e.target.value)}
             placeholder="Search for a place"
           />
           <IconButton
             disableTouchRipple
-            sx={{
-              bgcolor: main,
-              p: 0.9,
-            }}
+            onClick={addSearchTxtToQueryParams}
+            sx={searchStyles.searchButton}
           >
-            <SearchIcon sx={{ color: "#fff" }} />
+            <SearchIcon sx={{ color: "inherit" }} />
           </IconButton>
         </>
       </Stack>
 
       <Box
         sx={{
-          display: "flex",
+          display: { xs: "none", md: "flex" },
           alignItems: "center",
           gap: 1,
         }}
@@ -157,20 +196,20 @@ const Header = () => {
           disableTouchRipple
           size="small"
           sx={searchStyles.profileIcon}
-          aria-controls={open ? "account-menu" : undefined}
           aria-haspopup="true"
-          aria-expanded={open ? "true" : undefined}
           endIcon={<KeyboardArrowDownIcon />}
         >
           <Avatar sx={searchStyles.avatar}>
             {user.first_name?.charAt(0) || "A"}
           </Avatar>
-          {user.isActive && (
+          {user.is_active && (
             <Box sx={searchStyles.userDetail}>
               <Typography sx={searchStyles.username}>
                 {user.first_name} {user.last_name}
               </Typography>
-              <Typography sx={searchStyles.role}>Seller</Typography>
+              <Typography sx={searchStyles.role}>
+                {capFirst(user.role)}
+              </Typography>
             </Box>
           )}
         </Button>

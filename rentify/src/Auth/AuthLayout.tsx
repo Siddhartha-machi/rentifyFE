@@ -12,11 +12,14 @@ import CloseIcon from "@mui/icons-material/Close";
 import { authLayout } from "../CSS/auth";
 import {
   checkPasswordStrength,
+  isEmpty,
   singleNestedCopy,
   validateEmail,
 } from "../helpers";
 import { useAppDispatch, useAppSelector } from "../Redux/hooks";
-import { setEnableLogin } from "../Redux/Slices/appslice";
+import { loadUser, setEnableLogin } from "../Redux/Slices/appslice";
+import { APIRequest } from "../API/requests";
+import { toast } from "react-toastify";
 
 interface fieldProps {
   label: string;
@@ -42,6 +45,7 @@ const signinFields: fieldProps[] = [
     validator: checkPasswordStrength,
   },
 ];
+
 const signupFields: fieldProps[] = [
   {
     label: "First name",
@@ -68,6 +72,7 @@ export const AuthLayout = () => {
   const appState = useAppSelector((store) => store.app);
   const [formState, setFormState] = React.useState<fieldProps[]>([]);
   const [loginMode, setLoginMode] = React.useState(true);
+  const [error, setError] = React.useState("");
 
   const [formInvalid, setFormInvalid] = React.useState(false);
   const [loading, setloading] = React.useState(false);
@@ -99,7 +104,10 @@ export const AuthLayout = () => {
       if (valid) {
         valid = !updatedField.invalid;
       }
-      formData[field.label.toLowerCase()] = updatedField.value;
+
+      formData[field.label.toLowerCase().replace(" ", "_")] =
+        updatedField.value;
+
       return updatedField;
     });
     return { valid, newState, formData };
@@ -109,11 +117,18 @@ export const AuthLayout = () => {
     setloading(true);
     const { valid, newState, formData } = runValidations();
     if (valid) {
-      setFormState(signinFields);
-      setFormInvalid(false);
-      setLoginMode(true);
-      closeDialog();
-      console.log({ formData });
+      const req = new APIRequest();
+      const res = await req.auth(formData, loginMode);
+
+      if (res?.status === 200) {
+        dispatch(loadUser(res.data));
+        setLoginMode(true);
+        toast.success(`Signed ${loginMode ? "in" : "up"} successfully!`);
+        setFormState(singleNestedCopy(signinFields));
+        closeDialog();
+      }
+      setError(`Unable to ${loginMode ? "signin" : "signup"}!`);
+      setFormInvalid(isEmpty(res));
     } else {
       setFormState(newState);
       setFormInvalid(true);
@@ -171,7 +186,7 @@ export const AuthLayout = () => {
       </IconButton>
       {formInvalid && (
         <Typography sx={authLayout.errorText}>
-          Please fix the following error(s)
+          {error ? error : "Please fix the following error(s)"}
         </Typography>
       )}
       <Box sx={authLayout.formContainer}>

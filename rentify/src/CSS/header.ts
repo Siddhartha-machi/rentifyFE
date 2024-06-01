@@ -24,6 +24,14 @@ export const searchStyles = createStyles({
       border: 0,
     },
   },
+  searchButton: {
+    bgcolor: `rgba(${mainRGB},0.9)`,
+    p: 0.9,
+    color: "#fff",
+    "&:Hover": {
+      bgcolor: main,
+    },
+  },
   icon: {
     fontSize: "18px",
     mr: 1,

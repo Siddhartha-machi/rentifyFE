@@ -20,6 +20,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"],
+  "include": ["src", "public/credentials.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

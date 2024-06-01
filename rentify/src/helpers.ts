@@ -1,10 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { SxProps } from "@mui/material";
+import emailJs from "@emailjs/browser";
+import { UserType } from "./Redux/Slices/appslice";
 
 export function createStyles<T extends Record<string, SxProps>>(styles: T) {
   return styles;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const singleNestedCopy = (original: any[]) => {
   return original.map((obj) => ({ ...obj }));
 };
@@ -46,10 +48,129 @@ export const checkPasswordStrength = (password: string) => {
 };
 
 export const isEmpty = (val: unknown) => {
-  if (typeof val === "string") {
+  if (!val) {
+    return true;
+  } else if (typeof val === "string") {
     return val === "";
-  }
-  if (typeof val === "number") {
+  } else if (typeof val === "number") {
     return val === 0;
+  } else if (typeof val === "object") {
+    return Object.keys(val).length === 0;
+  }
+  if (!val) {
+    return false;
+  }
+  return true;
+};
+
+export const min = (val1: number | string, val2: number | string) => {
+  const v1 = parseInt(val1 as string);
+  const v2 = parseInt(val2 as string);
+
+  if (v1 < v2) {
+    return v1;
+  }
+  return v2;
+};
+
+export const max = (val1: number | string, val2: number | string) => {
+  const v1 = parseInt(val1 as string);
+  const v2 = parseInt(val2 as string);
+
+  if (v1 < v2) {
+    return v1;
+  }
+  return v2;
+};
+
+export const lstConcat = (lst: Array<string | number>) => {
+  let str = "";
+  for (const val of lst) {
+    str = str + "," + String(val);
+  }
+
+  return str.slice(1);
+};
+
+export const str = (val: number | null | undefined) => {
+  return String(val) || "";
+};
+
+export const int = (lst: Array<string>) => {
+  return lst.map((item) => parseInt(item));
+};
+
+export const capFirst = (str: string) => {
+  return str[0].toUpperCase() + str.slice(1);
+};
+
+export const resolveReq = (res: any) => {
+  const result: any = {
+    data: null,
+    error: "Unknown error occured, please try again later",
+    success: false,
+  };
+  if (res?.status >= 200 && res?.status < 300) {
+    result.data = res.data;
+    result.error = "";
+    result.success = true;
+  } else {
+    if (res?.data && typeof res?.data === "object") {
+      const key = Object.keys(res?.data)[0];
+      if (typeof res?.data[key] === "object") {
+        result.error = res?.data[key][0] || result.error;
+      } else {
+        result.error = res?.data[key];
+      }
+    }
+  }
+  return result;
+};
+
+// Mail helper handlers
+
+export const loadCreds = async () => {
+  let creds: any = null;
+
+  try {
+    const res = await fetch(`./credentials.json`);
+    if (res.ok) {
+      creds = await res.json();
+    }
+  } catch {
+    creds = null;
+  }
+
+  return creds;
+};
+
+export const sendMail = async (
+  receiver: UserType,
+  data: UserType,
+  prop_name: string
+) => {
+  const creds = await loadCreds();
+  if (!creds) {
+    return { status: 500 };
+  }
+
+  const template_params = {
+    first_name: receiver.first_name,
+    last_name: receiver.last_name,
+    email: receiver.email,
+    property_name: prop_name,
+    seller_name: `${data.first_name} ${data.last_name}`,
+    seller_email: data.email,
+    seller_contact: data.contact,
+  };
+  try {
+    return await emailJs.send(
+      creds.SERVICE_ID,
+      creds.TEMPLATE_ID,
+      template_params,
+      creds.PUBLIC_KEY
+    );
+  } catch (e: any) {
+    return e;
   }
 };
