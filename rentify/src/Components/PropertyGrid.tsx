@@ -200,7 +200,8 @@ export const PropertyGrid = () => {
             </Typography>
           </Box>
           <Typography sx={gridStyles.availCount}>
-            {pageCount} {pageCount === 1 ? "property" : "properties"} available
+            {propData.length}{" "}
+            {propData.length === 1 ? "property" : "properties"} available
           </Typography>
         </Box>
         <Box sx={gridStyles.sortByContainer}>
