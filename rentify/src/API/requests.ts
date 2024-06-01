@@ -3,7 +3,7 @@ import axios, { AxiosResponse } from "axios";
 import localforage from "localforage";
 
 export class APIRequest {
-  private BASEURL = "http://127.0.0.1:8888/rentify-api/v1/";
+  private BASEURL = "http://ecosadmin.pythonanywhere.com/rentify-api/v1/";
 
   async getToken() {
     try {

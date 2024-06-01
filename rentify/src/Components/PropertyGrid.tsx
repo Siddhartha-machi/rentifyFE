@@ -58,12 +58,28 @@ export const PropertyGrid = () => {
     [queryParams, setQueryParams]
   );
 
+  const handlePageChange = React.useCallback(
+    (value: number) => {
+      updateQueryParams("offset", str((value - 1) * 6));
+    },
+    [updateQueryParams]
+  );
+
   const handleChange = (event: SelectChangeEvent, child: unknown) => {
     const key = (child as React.ReactElement).props["fill-key"];
     if (key) {
       updateQueryParams("ordering", key);
     }
     setsortType(event.target.value as string);
+  };
+
+  const enableLoginDialog = (message: string) => {
+    dispatch(
+      setEnableLogin({
+        enable: true,
+        loginReason: `Please signin to ${message} a property`,
+      })
+    );
   };
 
   const handleBuyerLookup = (context: Array<number>) => {
@@ -83,13 +99,6 @@ export const PropertyGrid = () => {
       );
     }
   };
-
-  const handlePageChange = React.useCallback(
-    (value: number) => {
-      updateQueryParams("offset", str((value - 1) * 6));
-    },
-    [updateQueryParams]
-  );
 
   const crudHandler = async (type: number, index: number, id: number) => {
     if (type === 1) {
@@ -113,17 +122,21 @@ export const PropertyGrid = () => {
     liked: boolean,
     index: number
   ) => {
-    const client = new APIRequest();
-    let payload = [...likeLst];
-    if (liked) {
-      payload = payload.filter((id) => id !== user.id);
+    if (user.is_active) {
+      const client = new APIRequest();
+      let payload = [...likeLst];
+      if (liked) {
+        payload = payload.filter((id) => id !== user.id);
+      } else {
+        payload.push(user.id as number);
+      }
+      const res = await client.update(`property-list/${id}`, { like: payload });
+      const result = resolveReq(res);
+      if (result.success) {
+        dispatch(updateLikes({ index, data: payload }));
+      }
     } else {
-      payload.push(user.id as number);
-    }
-    const res = await client.update(`property-list/${id}`, { like: payload });
-    const result = resolveReq(res);
-    if (result.success) {
-      dispatch(updateLikes({ index, data: payload }));
+      enableLoginDialog("like");
     }
   };
 
@@ -133,19 +146,23 @@ export const PropertyGrid = () => {
     added: boolean,
     index: number
   ) => {
-    const client = new APIRequest();
-    let payload = [...wishlist];
-    if (added) {
-      payload = payload.filter((id) => id !== user.id);
+    if (user.is_active) {
+      const client = new APIRequest();
+      let payload = [...wishlist];
+      if (added) {
+        payload = payload.filter((id) => id !== user.id);
+      } else {
+        payload.push(user.id as number);
+      }
+      const res = await client.update(`property-list/${id}`, {
+        wishlist: payload,
+      });
+      const result = resolveReq(res);
+      if (result.success) {
+        dispatch(updateWishList({ index, data: payload }));
+      }
     } else {
-      payload.push(user.id as number);
-    }
-    const res = await client.update(`property-list/${id}`, {
-      wishlist: payload,
-    });
-    const result = resolveReq(res);
-    if (result.success) {
-      dispatch(updateWishList({ index, data: payload }));
+      enableLoginDialog("wishlist");
     }
   };
 
